@@ -1,8 +1,7 @@
 streamlit
-streamlit-webrtc
-streamlit-mic-recorder
+opencv-python-headless
 gTTS
+SpeechRecognition
 PyPDF2
+pillow
 pandas
-matplotlib
-numpy
