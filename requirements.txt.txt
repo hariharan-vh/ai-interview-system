@@ -1,0 +1,8 @@
+streamlit
+streamlit-webrtc
+streamlit-mic-recorder
+gTTS
+PyPDF2
+pandas
+matplotlib
+numpy
