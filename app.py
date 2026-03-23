@@ -2,12 +2,18 @@ import streamlit as st
 import sqlite3
 import time
 import random
-import speech_recognition as sr
 from gtts import gTTS
 from PyPDF2 import PdfReader
 from PIL import Image
 import os
 import pandas as pd
+
+# ----------- SAFE MIC IMPORT (CLOUD FIX) -----------
+try:
+    import speech_recognition as sr
+    mic_available = True
+except:
+    mic_available = False
 
 # ---------------- CONFIG ----------------
 st.set_page_config(page_title="AI Interview", layout="wide")
@@ -23,28 +29,15 @@ conn.commit()
 theme = st.sidebar.toggle("🌗 Dark Mode")
 
 if theme:
-    st.markdown("""
-    <style>
-    .stApp {background:#0e1117;color:white;}
-    </style>
-    """, unsafe_allow_html=True)
+    st.markdown("<style>.stApp {background:#0e1117;color:white;}</style>", unsafe_allow_html=True)
 else:
-    st.markdown("""
-    <style>
-    .stApp {background:white;color:black;}
-    </style>
-    """, unsafe_allow_html=True)
+    st.markdown("<style>.stApp {background:white;color:black;}</style>", unsafe_allow_html=True)
 
 # ---------------- ANIMATION + LOGO ----------------
 st.markdown("""
 <style>
-.fade-in {
-    animation: fadeIn 1.5s ease-in;
-}
-@keyframes fadeIn {
-    from {opacity:0;}
-    to {opacity:1;}
-}
+.fade-in {animation: fadeIn 1.5s ease-in;}
+@keyframes fadeIn {from {opacity:0;} to {opacity:1;}}
 .card {
     padding:20px;
     border-radius:15px;
@@ -54,7 +47,6 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
-# ---------------- HEADER ----------------
 col1, col2 = st.columns([1,5])
 with col1:
     st.image("https://cdn-icons-png.flaticon.com/512/3135/3135715.png", width=80)
@@ -119,34 +111,40 @@ def resume():
 
     if file:
         reader = PdfReader(file)
-        text = "".join([p.extract_text() for p in reader.pages])
+        text = "".join([p.extract_text() for p in reader.pages if p.extract_text()])
         st.session_state.skills = extract_skills(text)
         st.success("Resume Processed")
         st.write("Skills:", st.session_state.skills)
 
 # ---------------- VOICE ----------------
 def speak(text):
-    tts = gTTS(text=text, lang="en")
-    tts.save("voice.mp3")
-    st.image("https://cdn-icons-png.flaticon.com/512/4712/4712109.png", width=120)
-    st.audio("voice.mp3")
+    try:
+        tts = gTTS(text=text, lang="en")
+        tts.save("voice.mp3")
+        st.image("https://cdn-icons-png.flaticon.com/512/4712/4712109.png", width=120)
+        st.audio("voice.mp3")
+    except:
+        st.warning("Voice not supported in cloud")
 
-# ---------------- STT ----------------
+# ---------------- LISTEN ----------------
 def listen():
+    if not mic_available:
+        return st.text_input("Type your answer:")
+
     r = sr.Recognizer()
-    with sr.Microphone() as src:
-        audio = r.listen(src, timeout=5)
-        try:
+    try:
+        with sr.Microphone() as src:
+            audio = r.listen(src, timeout=5)
             return r.recognize_google(audio)
-        except:
-            return ""
+    except:
+        return st.text_input("Type your answer:")
 
 # ---------------- QUESTIONS ----------------
 def get_questions():
     base = [
-        "What is AI?",
+        "What is Artificial Intelligence?",
         "Explain Python",
-        "What is database?"
+        "What is Database?"
     ]
     if st.session_state.skills:
         return [f"Explain {s}" for s in st.session_state.skills[:3]]
@@ -154,13 +152,15 @@ def get_questions():
 
 # ---------------- EVALUATION ----------------
 def evaluate(ans):
-    return (10,"Good 👍") if len(ans.split()) > 5 else (0,"Wrong ❌")
+    if ans and len(ans.split()) > 5:
+        return (10,"Good Answer 👍")
+    return (0,"Wrong Answer ❌")
 
 # ---------------- JOB ----------------
 def jobs():
     st.subheader("💼 Job Offers")
     job_db = {
-        "python":"Python Dev (4-8 LPA)",
+        "python":"Python Developer (4-8 LPA)",
         "ai":"AI Engineer (6-12 LPA)",
         "ml":"ML Engineer (5-10 LPA)"
     }
@@ -193,7 +193,7 @@ def interview():
             time.sleep(1)
 
         ans = listen()
-        st.write("You:", ans)
+        st.write("Your Answer:", ans)
 
         sc, fb = evaluate(ans)
         st.session_state.score += sc
@@ -205,7 +205,7 @@ def interview():
         time.sleep(2)
         st.rerun()
 
-    elif st.session_state.q_index >= 3:
+    elif st.session_state.q_index >= len(questions):
         st.success("🎉 Interview Completed")
 
         st.write("Final Score:", st.session_state.score)
@@ -217,14 +217,14 @@ def interview():
         else:
             st.error("❌ Needs Improvement")
 
-        st.subheader("📊 Score Visualization")
+        st.subheader("📊 Score Chart")
 
         df = pd.DataFrame({
-            "Stage": ["Q1", "Q2", "Q3"],
+            "Round": ["Q1","Q2","Q3"],
             "Score": [st.session_state.score/3]*3
         })
 
-        st.bar_chart(df.set_index("Stage"))
+        st.bar_chart(df.set_index("Round"))
 
         c.execute("INSERT INTO scores VALUES (?,?)",(st.session_state.user,st.session_state.score))
         conn.commit()
