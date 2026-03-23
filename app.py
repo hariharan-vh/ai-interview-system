@@ -2,18 +2,23 @@ import streamlit as st
 import sqlite3
 import time
 import random
-from gtts import gTTS
 from PyPDF2 import PdfReader
 from PIL import Image
 import os
 import pandas as pd
 
-# ----------- SAFE MIC IMPORT (CLOUD FIX) -----------
+# -------- SAFE IMPORTS --------
 try:
     import speech_recognition as sr
     mic_available = True
 except:
     mic_available = False
+
+try:
+    from gtts import gTTS
+    voice_available = True
+except:
+    voice_available = False
 
 # ---------------- CONFIG ----------------
 st.set_page_config(page_title="AI Interview", layout="wide")
@@ -33,11 +38,11 @@ if theme:
 else:
     st.markdown("<style>.stApp {background:white;color:black;}</style>", unsafe_allow_html=True)
 
-# ---------------- ANIMATION + LOGO ----------------
+# ---------------- UI STYLE ----------------
 st.markdown("""
 <style>
-.fade-in {animation: fadeIn 1.5s ease-in;}
-@keyframes fadeIn {from {opacity:0;} to {opacity:1;}}
+.fade {animation: fadeIn 1.5s;}
+@keyframes fadeIn {from{opacity:0;} to{opacity:1;}}
 .card {
     padding:20px;
     border-radius:15px;
@@ -47,17 +52,17 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
+# ---------------- HEADER ----------------
 col1, col2 = st.columns([1,5])
 with col1:
     st.image("https://cdn-icons-png.flaticon.com/512/3135/3135715.png", width=80)
 with col2:
-    st.markdown("<h1 class='fade-in'>MIDDLE CLASS.pvt.ltd.</h1>", unsafe_allow_html=True)
+    st.markdown("<h1 class='fade'>MIDDLE CLASS.pvt.ltd.</h1>", unsafe_allow_html=True)
 
 # ---------------- SESSION ----------------
 defaults = {
     "login": False,
     "user": "",
-    "face": False,
     "skills": [],
     "score": 0,
     "q_index": 0,
@@ -90,14 +95,12 @@ def face_capture():
     if img:
         Image.open(img).save(f"{st.session_state.user}.jpg")
         st.success("Face Stored")
-        st.session_state.face = True
 
 def face_verify():
     st.subheader("🔍 Face Verify")
     img = st.camera_input("Verify Face")
     if img and os.path.exists(f"{st.session_state.user}.jpg"):
         st.success("Face Verified ✅")
-        st.session_state.face = True
 
 # ---------------- RESUME ----------------
 def extract_skills(text):
@@ -118,13 +121,15 @@ def resume():
 
 # ---------------- VOICE ----------------
 def speak(text):
+    if not voice_available:
+        st.info("🔇 Voice not available in cloud")
+        return
     try:
         tts = gTTS(text=text, lang="en")
         tts.save("voice.mp3")
-        st.image("https://cdn-icons-png.flaticon.com/512/4712/4712109.png", width=120)
         st.audio("voice.mp3")
     except:
-        st.warning("Voice not supported in cloud")
+        st.warning("Voice failed")
 
 # ---------------- LISTEN ----------------
 def listen():
@@ -181,7 +186,7 @@ def interview():
     if st.session_state.started and st.session_state.q_index < len(questions):
 
         q = questions[st.session_state.q_index]
-        st.markdown(f"<div class='card fade-in'>🤖 {q}</div>", unsafe_allow_html=True)
+        st.markdown(f"<div class='card fade'>🤖 {q}</div>", unsafe_allow_html=True)
         speak(q)
 
         timer = st.empty()
