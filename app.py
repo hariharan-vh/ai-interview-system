@@ -4,22 +4,9 @@ import time
 
 st.set_page_config(page_title="Middle Class Pvt Ltd", layout="centered")
 
-# ---------------- THEME TOGGLE ----------------
-theme = st.sidebar.selectbox("🌗 Theme", ["Light", "Dark"])
-
-if theme == "Dark":
-    st.markdown("""
-        <style>
-        body { background-color: #0E1117; color: white; }
-        </style>
-    """, unsafe_allow_html=True)
-
 # ---------------- SESSION ----------------
 if "page" not in st.session_state:
     st.session_state.page = "login"
-
-if "user" not in st.session_state:
-    st.session_state.user = ""
 
 if "questions" not in st.session_state:
     st.session_state.questions = []
@@ -27,76 +14,76 @@ if "questions" not in st.session_state:
 if "answers" not in st.session_state:
     st.session_state.answers = []
 
-# ---------------- LOGIN PAGE ----------------
+# ---------------- LOGIN ----------------
 if st.session_state.page == "login":
     st.markdown("<h1 style='text-align:center;'>🏢 Middle Class.pvt.ltd</h1>", unsafe_allow_html=True)
-    st.markdown("### 🔐 Login")
+    st.markdown("## 🔐 Login")
 
-    username = st.text_input("Username")
-    password = st.text_input("Password", type="password")
+    user = st.text_input("Username")
+    pwd = st.text_input("Password", type="password")
 
     if st.button("Login"):
-        if username and password:
-            st.session_state.user = username
+        if user and pwd:
             st.session_state.page = "dashboard"
         else:
             st.error("Enter valid details")
 
 # ---------------- DASHBOARD ----------------
 elif st.session_state.page == "dashboard":
-    st.markdown(f"<h2>Welcome {st.session_state.user} 👋</h2>", unsafe_allow_html=True)
+    st.title("📊 Dashboard")
+    st.success("💼 Job Roles Available: AI Engineer | Java Developer")
 
-    st.markdown("## 📊 Job Offers")
-    col1, col2 = st.columns(2)
+    resume_type = st.selectbox("Resume Type", ["Fresher", "Experienced"])
+    resume = st.file_uploader("Upload Resume", type=["pdf"])
 
-    with col1:
-        st.success("💻 Java Developer")
-    with col2:
-        st.info("🤖 AI Engineer")
+    # ---------- FACE DETECTION ----------
+    st.markdown("### 🎥 Face Verification")
 
-    st.markdown("## 🧾 Resume Section")
+    st.markdown("""
+    <video id="video" width="300" autoplay></video>
+    <p id="face_status">Checking face...</p>
 
-    resume_type = st.selectbox("Select Resume Type", ["Fresher", "Experienced"])
-    uploaded_file = st.file_uploader("Upload Resume (PDF)", type=["pdf"])
+    <script>
+    navigator.mediaDevices.getUserMedia({ video: true })
+    .then(function(stream) {
+        document.getElementById('video').srcObject = stream;
+        document.getElementById("face_status").innerHTML = "✅ Face detected (Camera Active)";
+    })
+    .catch(function(err) {
+        document.getElementById("face_status").innerHTML = "❌ No face detected / Camera blocked";
+    });
+    </script>
+    """, unsafe_allow_html=True)
 
-    # -------- FACE CHECK (SIMULATED) --------
-    st.warning("⚠️ Face Verification Required (Simulation)")
-    face_verified = st.checkbox("I confirm my face is visible")
-
-    if not face_verified:
-        st.error("❌ Face not detected! Access denied.")
-
-    if uploaded_file and face_verified:
-        st.success("Resume Uploaded Successfully ✅")
-
+    if resume:
         if st.button("🚀 Start Interview"):
             st.session_state.page = "interview"
 
 # ---------------- INTERVIEW ----------------
 elif st.session_state.page == "interview":
 
-    st.title("🤖 AI Interview")
+    st.title("🤖 AI Voice Interview")
 
-    # -------- GENERATE QUESTIONS --------
+    # generate questions
     if not st.session_state.questions:
-        base_questions = [
-            "Explain your project.",
-            "What are your strengths?",
-            "Explain OOP concepts.",
-            "What is your role in team?",
-            "Why should we hire you?"
+        qlist = [
+            "Tell me about yourself",
+            "Explain your project",
+            "What are your strengths",
+            "Why should we hire you",
+            "Explain your technical skills"
         ]
-        st.session_state.questions = random.sample(base_questions, 5)
+        st.session_state.questions = random.sample(qlist, 5)
 
-    q_index = len(st.session_state.answers)
+    index = len(st.session_state.answers)
 
-    if q_index < 5:
-        question = st.session_state.questions[q_index]
+    if index < 5:
+        question = st.session_state.questions[index]
 
-        st.subheader(f"Question {q_index+1}")
+        st.subheader(f"Question {index+1}")
         st.info(question)
 
-        # 🔊 Voice
+        # 🔊 VOICE QUESTION
         st.markdown(f"""
         <script>
         var msg = new SpeechSynthesisUtterance("{question}");
@@ -105,9 +92,20 @@ elif st.session_state.page == "interview":
         </script>
         """, unsafe_allow_html=True)
 
-        # 🎤 Speech-to-text
+        # ⏱️ THINKING TIMER
+        st.write("⏳ Thinking Time: 30 seconds")
+        timer_placeholder = st.empty()
+
+        for i in range(30, 0, -1):
+            timer_placeholder.write(f"Time left: {i} sec")
+            time.sleep(1)
+
+        st.success("🎤 Start Speaking Now!")
+
+        # 🎤 SPEECH TO TEXT
         st.markdown("""
         <button onclick="startDictation()">🎤 Speak Answer</button>
+
         <script>
         function startDictation() {
             var recognition = new webkitSpeechRecognition();
@@ -115,6 +113,7 @@ elif st.session_state.page == "interview":
 
             recognition.onresult = function(event) {
                 var text = event.results[0][0].transcript;
+
                 const doc = window.parent.document;
                 const area = doc.querySelector('textarea');
                 if(area){
@@ -122,29 +121,29 @@ elif st.session_state.page == "interview":
                     area.dispatchEvent(new Event('input',{bubbles:true}));
                 }
             };
+
             recognition.start();
         }
         </script>
         """, unsafe_allow_html=True)
 
-        answer = st.text_area("Your Answer")
+        answer = st.text_area("Your Answer (auto voice input)")
 
         if st.button("Submit Answer"):
             if answer:
                 st.session_state.answers.append(answer)
                 st.rerun()
             else:
-                st.warning("Please answer!")
+                st.warning("Please speak your answer!")
 
     else:
         # -------- RESULT --------
-        st.success("Interview Completed 🎉")
+        st.success("🎉 Interview Completed")
 
         scores = [min(len(a.split()) * 2, 100) for a in st.session_state.answers]
-        total = sum(scores) / len(scores)
+        total = int(sum(scores) / len(scores))
 
-        st.write("### 📊 Overall Score:", int(total))
-
+        st.write("## 📊 Overall Score:", total)
         st.bar_chart(scores)
 
         if st.button("🏠 Back to Dashboard"):
