@@ -1,111 +1,153 @@
 import streamlit as st
 import random
+import time
 
-# ------------------ PAGE CONFIG ------------------
-st.set_page_config(page_title="AI Interview System", layout="centered")
+st.set_page_config(page_title="Middle Class Pvt Ltd", layout="centered")
 
-# ------------------ TITLE ------------------
-st.markdown("<h1 style='text-align: center;'>🤖 AI Interview System</h1>", unsafe_allow_html=True)
+# ---------------- THEME TOGGLE ----------------
+theme = st.sidebar.selectbox("🌗 Theme", ["Light", "Dark"])
 
-# ------------------ QUESTIONS ------------------
-questions = [
-    "What is Artificial Intelligence?",
-    "Explain Object Oriented Programming.",
-    "What is a REST API?",
-    "Difference between list and tuple in Python?",
-    "What is Machine Learning?",
-    "Explain JVM in Java.",
-]
-
-# ------------------ SESSION STATE ------------------
-if "question" not in st.session_state:
-    st.session_state.question = ""
-
-if "answer" not in st.session_state:
-    st.session_state.answer = ""
-
-# ------------------ START BUTTON ------------------
-if st.button("🚀 Start Interview"):
-    st.session_state.question = random.choice(questions)
-    st.session_state.answer = ""
-
-# ------------------ DISPLAY QUESTION ------------------
-if st.session_state.question:
-    st.subheader("📌 Question:")
-    st.info(st.session_state.question)
-
-    # 🔊 TEXT TO SPEECH (VOICE OUTPUT)
-    st.markdown(f"""
-    <script>
-    var msg = new SpeechSynthesisUtterance("{st.session_state.question}");
-    msg.rate = 1;
-    msg.pitch = 1;
-    speechSynthesis.cancel();
-    speechSynthesis.speak(msg);
-    </script>
-    """, unsafe_allow_html=True)
-
-    # 🎤 SPEECH TO TEXT BUTTON
+if theme == "Dark":
     st.markdown("""
-    <button onclick="startDictation()" style="
-        padding:10px 20px;
-        font-size:16px;
-        background-color:#4CAF50;
-        color:white;
-        border:none;
-        border-radius:5px;
-        cursor:pointer;">
-        🎤 Speak Answer
-    </button>
-
-    <p id="output" style="font-weight:bold; color:green;"></p>
-
-    <script>
-    function startDictation() {
-        var recognition = new webkitSpeechRecognition();
-        recognition.lang = "en-US";
-
-        recognition.onresult = function(event) {
-            var text = event.results[0][0].transcript;
-            document.getElementById("output").innerHTML = text;
-
-            // Send to Streamlit textarea
-            const streamlitDoc = window.parent.document;
-            const textArea = streamlitDoc.querySelector('textarea');
-            if(textArea){
-                textArea.value = text;
-                textArea.dispatchEvent(new Event('input', { bubbles: true }));
-            }
-        };
-
-        recognition.start();
-    }
-    </script>
+        <style>
+        body { background-color: #0E1117; color: white; }
+        </style>
     """, unsafe_allow_html=True)
 
-    # ------------------ ANSWER INPUT ------------------
-    answer = st.text_area("✍️ Your Answer (voice will appear here):")
+# ---------------- SESSION ----------------
+if "page" not in st.session_state:
+    st.session_state.page = "login"
 
-    # ------------------ SUBMIT ------------------
-    if st.button("✅ Submit Answer"):
-        if answer.strip() == "":
-            st.warning("Please speak or type your answer!")
+if "user" not in st.session_state:
+    st.session_state.user = ""
+
+if "questions" not in st.session_state:
+    st.session_state.questions = []
+
+if "answers" not in st.session_state:
+    st.session_state.answers = []
+
+# ---------------- LOGIN PAGE ----------------
+if st.session_state.page == "login":
+    st.markdown("<h1 style='text-align:center;'>🏢 Middle Class.pvt.ltd</h1>", unsafe_allow_html=True)
+    st.markdown("### 🔐 Login")
+
+    username = st.text_input("Username")
+    password = st.text_input("Password", type="password")
+
+    if st.button("Login"):
+        if username and password:
+            st.session_state.user = username
+            st.session_state.page = "dashboard"
         else:
-            st.success("Answer Submitted Successfully ✅")
+            st.error("Enter valid details")
 
-            # ------------------ SIMPLE EVALUATION ------------------
-            score = min(len(answer.split()) * 2, 100)
+# ---------------- DASHBOARD ----------------
+elif st.session_state.page == "dashboard":
+    st.markdown(f"<h2>Welcome {st.session_state.user} 👋</h2>", unsafe_allow_html=True)
 
-            st.subheader("📊 Evaluation Result")
-            st.write(f"**Score:** {score}/100")
+    st.markdown("## 📊 Job Offers")
+    col1, col2 = st.columns(2)
 
-            if score > 70:
-                st.success("Excellent Answer 🎉")
-            elif score > 40:
-                st.info("Good Answer 👍")
+    with col1:
+        st.success("💻 Java Developer")
+    with col2:
+        st.info("🤖 AI Engineer")
+
+    st.markdown("## 🧾 Resume Section")
+
+    resume_type = st.selectbox("Select Resume Type", ["Fresher", "Experienced"])
+    uploaded_file = st.file_uploader("Upload Resume (PDF)", type=["pdf"])
+
+    # -------- FACE CHECK (SIMULATED) --------
+    st.warning("⚠️ Face Verification Required (Simulation)")
+    face_verified = st.checkbox("I confirm my face is visible")
+
+    if not face_verified:
+        st.error("❌ Face not detected! Access denied.")
+
+    if uploaded_file and face_verified:
+        st.success("Resume Uploaded Successfully ✅")
+
+        if st.button("🚀 Start Interview"):
+            st.session_state.page = "interview"
+
+# ---------------- INTERVIEW ----------------
+elif st.session_state.page == "interview":
+
+    st.title("🤖 AI Interview")
+
+    # -------- GENERATE QUESTIONS --------
+    if not st.session_state.questions:
+        base_questions = [
+            "Explain your project.",
+            "What are your strengths?",
+            "Explain OOP concepts.",
+            "What is your role in team?",
+            "Why should we hire you?"
+        ]
+        st.session_state.questions = random.sample(base_questions, 5)
+
+    q_index = len(st.session_state.answers)
+
+    if q_index < 5:
+        question = st.session_state.questions[q_index]
+
+        st.subheader(f"Question {q_index+1}")
+        st.info(question)
+
+        # 🔊 Voice
+        st.markdown(f"""
+        <script>
+        var msg = new SpeechSynthesisUtterance("{question}");
+        speechSynthesis.cancel();
+        speechSynthesis.speak(msg);
+        </script>
+        """, unsafe_allow_html=True)
+
+        # 🎤 Speech-to-text
+        st.markdown("""
+        <button onclick="startDictation()">🎤 Speak Answer</button>
+        <script>
+        function startDictation() {
+            var recognition = new webkitSpeechRecognition();
+            recognition.lang = "en-US";
+
+            recognition.onresult = function(event) {
+                var text = event.results[0][0].transcript;
+                const doc = window.parent.document;
+                const area = doc.querySelector('textarea');
+                if(area){
+                    area.value = text;
+                    area.dispatchEvent(new Event('input',{bubbles:true}));
+                }
+            };
+            recognition.start();
+        }
+        </script>
+        """, unsafe_allow_html=True)
+
+        answer = st.text_area("Your Answer")
+
+        if st.button("Submit Answer"):
+            if answer:
+                st.session_state.answers.append(answer)
+                st.rerun()
             else:
-                st.error("Needs Improvement ❗")
+                st.warning("Please answer!")
 
-# ------------------ FOOTER ------------------
-st.markdown("---")
-st.markdown("<center>💼 AI Interview System | Resume Project Ready</center>", unsafe_allow_html=True)
+    else:
+        # -------- RESULT --------
+        st.success("Interview Completed 🎉")
+
+        scores = [min(len(a.split()) * 2, 100) for a in st.session_state.answers]
+        total = sum(scores) / len(scores)
+
+        st.write("### 📊 Overall Score:", int(total))
+
+        st.bar_chart(scores)
+
+        if st.button("🏠 Back to Dashboard"):
+            st.session_state.page = "dashboard"
+            st.session_state.answers = []
+            st.session_state.questions = []
