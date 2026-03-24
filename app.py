@@ -2,8 +2,6 @@ import streamlit as st
 import sqlite3
 import time
 import random
-import speech_recognition as sr
-from gtts import gTTS
 from PyPDF2 import PdfReader
 from PIL import Image
 import os
@@ -35,22 +33,12 @@ else:
     </style>
     """, unsafe_allow_html=True)
 
-# ---------------- ANIMATION + LOGO ----------------
+# ---------------- UI ----------------
 st.markdown("""
 <style>
-.fade-in {
-    animation: fadeIn 1.5s ease-in;
-}
-@keyframes fadeIn {
-    from {opacity:0;}
-    to {opacity:1;}
-}
-.card {
-    padding:20px;
-    border-radius:15px;
-    box-shadow:0 4px 10px rgba(0,0,0,0.2);
-    margin:10px 0;
-}
+.fade-in {animation: fadeIn 1.5s ease-in;}
+@keyframes fadeIn {from {opacity:0;} to {opacity:1;}}
+.card {padding:20px;border-radius:15px;box-shadow:0 4px 10px rgba(0,0,0,0.2);margin:10px 0;}
 </style>
 """, unsafe_allow_html=True)
 
@@ -124,29 +112,33 @@ def resume():
         st.success("Resume Processed")
         st.write("Skills:", st.session_state.skills)
 
-# ---------------- VOICE ----------------
+# ---------------- VOICE (FIXED) ----------------
 def speak(text):
-    tts = gTTS(text=text, lang="en")
-    tts.save("voice.mp3")
-    st.image("https://cdn-icons-png.flaticon.com/512/4712/4712109.png", width=120)
-    st.audio("voice.mp3")
+    st.markdown(f"""
+    <script>
+    var msg = new SpeechSynthesisUtterance("{text}");
+    var voices = speechSynthesis.getVoices();
 
-# ---------------- STT ----------------
-def listen():
-    r = sr.Recognizer()
-    with sr.Microphone() as src:
-        audio = r.listen(src, timeout=5)
-        try:
-            return r.recognize_google(audio)
-        except:
-            return ""
+    for (let i=0; i<voices.length; i++) {{
+        if (voices[i].name.includes("Female") || voices[i].name.includes("Google UK English Female")) {{
+            msg.voice = voices[i];
+            break;
+        }}
+    }}
+
+    msg.pitch = 1.2;
+    msg.rate = 1;
+    speechSynthesis.cancel();
+    speechSynthesis.speak(msg);
+    </script>
+    """, unsafe_allow_html=True)
 
 # ---------------- QUESTIONS ----------------
 def get_questions():
     base = [
-        "What is AI?",
-        "Explain Python",
-        "What is database?"
+        "What is AaI?",
+        "Explain Pyython",
+        "What is daatabase?"
     ]
     if st.session_state.skills:
         return [f"Explain {s}" for s in st.session_state.skills[:3]]
@@ -184,26 +176,46 @@ def interview():
         st.markdown(f"<div class='card fade-in'>🤖 {q}</div>", unsafe_allow_html=True)
         speak(q)
 
-        timer = st.empty()
-        for i in range(30,0,-1):
-            if i <= 10:
-                timer.error(f"⚠️ Hurry up! {i}s")
+        st.write("⏳ Think for 30 seconds before answering")
+
+        # 🎤 SPEECH TO TEXT
+        st.markdown("""
+        <button onclick="startSpeech()">🎤 Speak Answer</button>
+        <p id="result"></p>
+
+        <script>
+        function startSpeech() {
+            var recognition = new webkitSpeechRecognition();
+            recognition.lang = "en-US";
+
+            recognition.onresult = function(event) {
+                var text = event.results[0][0].transcript;
+                document.getElementById("result").innerHTML = text;
+
+                const doc = window.parent.document;
+                const input = doc.querySelector('textarea');
+                if(input){
+                    input.value = text;
+                    input.dispatchEvent(new Event('input',{bubbles:true}));
+                }
+            };
+
+            recognition.start();
+        }
+        </script>
+        """, unsafe_allow_html=True)
+
+        ans = st.text_area("Your Answer")
+
+        if st.button("Submit Answer"):
+            if ans:
+                sc, fb = evaluate(ans)
+                st.session_state.score += sc
+                st.success(fb)
+                st.session_state.q_index += 1
+                st.rerun()
             else:
-                timer.info(f"Thinking Time: {i}s")
-            time.sleep(1)
-
-        ans = listen()
-        st.write("You:", ans)
-
-        sc, fb = evaluate(ans)
-        st.session_state.score += sc
-
-        st.success(fb)
-        st.write("Score:", st.session_state.score)
-
-        st.session_state.q_index += 1
-        time.sleep(2)
-        st.rerun()
+                st.warning("Please speak your answer")
 
     elif st.session_state.q_index >= 3:
         st.success("🎉 Interview Completed")
@@ -211,16 +223,14 @@ def interview():
         st.write("Final Score:", st.session_state.score)
 
         if st.session_state.score >= 20:
-            st.success("🌟 Excellent Performance")
+            st.success("🌟 Excellent")
         elif st.session_state.score >= 10:
-            st.info("👍 Good Performance")
+            st.info("👍 Good")
         else:
-            st.error("❌ Needs Improvement")
-
-        st.subheader("📊 Score Visualization")
+            st.error("❌ Improve")
 
         df = pd.DataFrame({
-            "Stage": ["Q1", "Q2", "Q3"],
+            "Stage": ["Q1","Q2","Q3"],
             "Score": [st.session_state.score/3]*3
         })
 
