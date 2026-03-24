@@ -1,252 +1,111 @@
 import streamlit as st
-import sqlite3
-import time
 import random
-from PyPDF2 import PdfReader
-from PIL import Image
-import os
-import pandas as pd
 
-# -------- SAFE IMPORTS --------
-try:
-    import speech_recognition as sr
-    mic_available = True
-except:
-    mic_available = False
+# ------------------ PAGE CONFIG ------------------
+st.set_page_config(page_title="AI Interview System", layout="centered")
 
-try:
-    from gtts import gTTS
-    voice_available = True
-except:
-    voice_available = False
+# ------------------ TITLE ------------------
+st.markdown("<h1 style='text-align: center;'>🤖 AI Interview System</h1>", unsafe_allow_html=True)
 
-# ---------------- CONFIG ----------------
-st.set_page_config(page_title="AI Interview", layout="wide")
+# ------------------ QUESTIONS ------------------
+questions = [
+    "What is Artificial Intelligence?",
+    "Explain Object Oriented Programming.",
+    "What is a REST API?",
+    "Difference between list and tuple in Python?",
+    "What is Machine Learning?",
+    "Explain JVM in Java.",
+]
 
-# ---------------- DB ----------------
-conn = sqlite3.connect("users.db", check_same_thread=False)
-c = conn.cursor()
-c.execute("CREATE TABLE IF NOT EXISTS users(username TEXT, password TEXT)")
-c.execute("CREATE TABLE IF NOT EXISTS scores(username TEXT, score INTEGER)")
-conn.commit()
+# ------------------ SESSION STATE ------------------
+if "question" not in st.session_state:
+    st.session_state.question = ""
 
-# ---------------- THEME ----------------
-theme = st.sidebar.toggle("🌗 Dark Mode")
+if "answer" not in st.session_state:
+    st.session_state.answer = ""
 
-if theme:
-    st.markdown("<style>.stApp {background:#0e1117;color:white;}</style>", unsafe_allow_html=True)
-else:
-    st.markdown("<style>.stApp {background:white;color:black;}</style>", unsafe_allow_html=True)
+# ------------------ START BUTTON ------------------
+if st.button("🚀 Start Interview"):
+    st.session_state.question = random.choice(questions)
+    st.session_state.answer = ""
 
-# ---------------- UI STYLE ----------------
-st.markdown("""
-<style>
-.fade {animation: fadeIn 1.5s;}
-@keyframes fadeIn {from{opacity:0;} to{opacity:1;}}
-.card {
-    padding:20px;
-    border-radius:15px;
-    box-shadow:0 4px 10px rgba(0,0,0,0.2);
-    margin:10px 0;
-}
-</style>
-""", unsafe_allow_html=True)
+# ------------------ DISPLAY QUESTION ------------------
+if st.session_state.question:
+    st.subheader("📌 Question:")
+    st.info(st.session_state.question)
 
-# ---------------- HEADER ----------------
-col1, col2 = st.columns([1,5])
-with col1:
-    st.image("https://cdn-icons-png.flaticon.com/512/3135/3135715.png", width=80)
-with col2:
-    st.markdown("<h1 class='fade'>MIDDLE CLASS.pvt.ltd.</h1>", unsafe_allow_html=True)
+    # 🔊 TEXT TO SPEECH (VOICE OUTPUT)
+    st.markdown(f"""
+    <script>
+    var msg = new SpeechSynthesisUtterance("{st.session_state.question}");
+    msg.rate = 1;
+    msg.pitch = 1;
+    speechSynthesis.cancel();
+    speechSynthesis.speak(msg);
+    </script>
+    """, unsafe_allow_html=True)
 
-# ---------------- SESSION ----------------
-defaults = {
-    "login": False,
-    "user": "",
-    "skills": [],
-    "score": 0,
-    "q_index": 0,
-    "started": False
-}
-for k,v in defaults.items():
-    if k not in st.session_state:
-        st.session_state[k] = v
+    # 🎤 SPEECH TO TEXT BUTTON
+    st.markdown("""
+    <button onclick="startDictation()" style="
+        padding:10px 20px;
+        font-size:16px;
+        background-color:#4CAF50;
+        color:white;
+        border:none;
+        border-radius:5px;
+        cursor:pointer;">
+        🎤 Speak Answer
+    </button>
 
-# ---------------- LOGIN ----------------
-def login():
-    st.subheader("🔐 Login")
-    u = st.text_input("Username")
-    p = st.text_input("Password", type="password")
+    <p id="output" style="font-weight:bold; color:green;"></p>
 
-    if st.button("Login"):
-        res = c.execute("SELECT * FROM users WHERE username=? AND password=?", (u,p)).fetchone()
-        if res:
-            st.session_state.login = True
-            st.session_state.user = u
-        else:
-            c.execute("INSERT INTO users VALUES (?,?)",(u,p))
-            conn.commit()
-            st.success("User Registered")
+    <script>
+    function startDictation() {
+        var recognition = new webkitSpeechRecognition();
+        recognition.lang = "en-US";
 
-# ---------------- FACE ----------------
-def face_capture():
-    st.subheader("📸 Face Setup")
-    img = st.camera_input("Capture Face")
-    if img:
-        Image.open(img).save(f"{st.session_state.user}.jpg")
-        st.success("Face Stored")
+        recognition.onresult = function(event) {
+            var text = event.results[0][0].transcript;
+            document.getElementById("output").innerHTML = text;
 
-def face_verify():
-    st.subheader("🔍 Face Verify")
-    img = st.camera_input("Verify Face")
-    if img and os.path.exists(f"{st.session_state.user}.jpg"):
-        st.success("Face Verified ✅")
+            // Send to Streamlit textarea
+            const streamlitDoc = window.parent.document;
+            const textArea = streamlitDoc.querySelector('textarea');
+            if(textArea){
+                textArea.value = text;
+                textArea.dispatchEvent(new Event('input', { bubbles: true }));
+            }
+        };
 
-# ---------------- RESUME ----------------
-def extract_skills(text):
-    db = ["python","java","ai","ml","data","sql","web","cloud"]
-    return [s for s in db if s in text.lower()]
-
-def resume():
-    st.subheader("📄 Resume Upload")
-    file = st.file_uploader("Upload PDF", type=["pdf"])
-    st.selectbox("Resume Type",["Fresher","Experienced"])
-
-    if file:
-        reader = PdfReader(file)
-        text = "".join([p.extract_text() for p in reader.pages if p.extract_text()])
-        st.session_state.skills = extract_skills(text)
-        st.success("Resume Processed")
-        st.write("Skills:", st.session_state.skills)
-
-# ---------------- VOICE ----------------
-def speak(text):
-    if not voice_available:
-        st.info("🔇 Voice not available in cloud")
-        return
-    try:
-        tts = gTTS(text=text, lang="en")
-        tts.save("voice.mp3")
-        st.audio("voice.mp3")
-    except:
-        st.warning("Voice failed")
-
-# ---------------- LISTEN ----------------
-def listen():
-    if not mic_available:
-        return st.text_input("Type your answer:")
-
-    r = sr.Recognizer()
-    try:
-        with sr.Microphone() as src:
-            audio = r.listen(src, timeout=5)
-            return r.recognize_google(audio)
-    except:
-        return st.text_input("Type your answer:")
-
-# ---------------- QUESTIONS ----------------
-def get_questions():
-    base = [
-        "What is Artificial Intelligence?",
-        "Explain Python",
-        "What is Database?"
-    ]
-    if st.session_state.skills:
-        return [f"Explain {s}" for s in st.session_state.skills[:3]]
-    return base
-
-# ---------------- EVALUATION ----------------
-def evaluate(ans):
-    if ans and len(ans.split()) > 5:
-        return (10,"Good Answer 👍")
-    return (0,"Wrong Answer ❌")
-
-# ---------------- JOB ----------------
-def jobs():
-    st.subheader("💼 Job Offers")
-    job_db = {
-        "python":"Python Developer (4-8 LPA)",
-        "ai":"AI Engineer (6-12 LPA)",
-        "ml":"ML Engineer (5-10 LPA)"
+        recognition.start();
     }
-    for s in st.session_state.skills:
-        if s in job_db:
-            st.success(job_db[s])
+    </script>
+    """, unsafe_allow_html=True)
 
-# ---------------- INTERVIEW ----------------
-def interview():
-    st.subheader("🎭 AI Interview")
+    # ------------------ ANSWER INPUT ------------------
+    answer = st.text_area("✍️ Your Answer (voice will appear here):")
 
-    questions = get_questions()
-
-    if not st.session_state.started:
-        if st.button("Start Interview 🚀"):
-            st.session_state.started = True
-
-    if st.session_state.started and st.session_state.q_index < len(questions):
-
-        q = questions[st.session_state.q_index]
-        st.markdown(f"<div class='card fade'>🤖 {q}</div>", unsafe_allow_html=True)
-        speak(q)
-
-        timer = st.empty()
-        for i in range(30,0,-1):
-            if i <= 10:
-                timer.error(f"⚠️ Hurry up! {i}s")
-            else:
-                timer.info(f"Thinking Time: {i}s")
-            time.sleep(1)
-
-        ans = listen()
-        st.write("Your Answer:", ans)
-
-        sc, fb = evaluate(ans)
-        st.session_state.score += sc
-
-        st.success(fb)
-        st.write("Score:", st.session_state.score)
-
-        st.session_state.q_index += 1
-        time.sleep(2)
-        st.rerun()
-
-    elif st.session_state.q_index >= len(questions):
-        st.success("🎉 Interview Completed")
-
-        st.write("Final Score:", st.session_state.score)
-
-        if st.session_state.score >= 20:
-            st.success("🌟 Excellent Performance")
-        elif st.session_state.score >= 10:
-            st.info("👍 Good Performance")
+    # ------------------ SUBMIT ------------------
+    if st.button("✅ Submit Answer"):
+        if answer.strip() == "":
+            st.warning("Please speak or type your answer!")
         else:
-            st.error("❌ Needs Improvement")
+            st.success("Answer Submitted Successfully ✅")
 
-        st.subheader("📊 Score Chart")
+            # ------------------ SIMPLE EVALUATION ------------------
+            score = min(len(answer.split()) * 2, 100)
 
-        df = pd.DataFrame({
-            "Round": ["Q1","Q2","Q3"],
-            "Score": [st.session_state.score/3]*3
-        })
+            st.subheader("📊 Evaluation Result")
+            st.write(f"**Score:** {score}/100")
 
-        st.bar_chart(df.set_index("Round"))
+            if score > 70:
+                st.success("Excellent Answer 🎉")
+            elif score > 40:
+                st.info("Good Answer 👍")
+            else:
+                st.error("Needs Improvement ❗")
 
-        c.execute("INSERT INTO scores VALUES (?,?)",(st.session_state.user,st.session_state.score))
-        conn.commit()
-
-# ---------------- FLOW ----------------
-if not st.session_state.login:
-    login()
-else:
-    menu = st.sidebar.radio("Menu",["Face Setup","Face Verify","Resume","Interview","Jobs"])
-
-    if menu=="Face Setup":
-        face_capture()
-    elif menu=="Face Verify":
-        face_verify()
-    elif menu=="Resume":
-        resume()
-    elif menu=="Interview":
-        interview()
-    elif menu=="Jobs":
-        jobs()
+# ------------------ FOOTER ------------------
+st.markdown("---")
+st.markdown("<center>💼 AI Interview System | Resume Project Ready</center>", unsafe_allow_html=True)
