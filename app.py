@@ -4,6 +4,16 @@ import time
 
 st.set_page_config(page_title="Middle Class Pvt Ltd", layout="centered")
 
+# ---------------- THEME ----------------
+theme = st.sidebar.selectbox("🌗 Theme", ["Light", "Dark"])
+
+if theme == "Dark":
+    st.markdown("""
+        <style>
+        body { background-color: #0E1117; color: white; }
+        </style>
+    """, unsafe_allow_html=True)
+
 # ---------------- SESSION ----------------
 if "page" not in st.session_state:
     st.session_state.page = "login"
@@ -31,26 +41,26 @@ if st.session_state.page == "login":
 # ---------------- DASHBOARD ----------------
 elif st.session_state.page == "dashboard":
     st.title("📊 Dashboard")
-    st.success("💼 Job Roles Available: AI Engineer | Java Developer")
 
-    resume_type = st.selectbox("Resume Type", ["Fresher", "Experienced"])
-    resume = st.file_uploader("Upload Resume", type=["pdf"])
+    st.success("💼 Job Roles: AI Engineer | Java Developer")
 
-    # ---------- FACE DETECTION ----------
-    st.markdown("### 🎥 Face Verification")
+    resume = st.file_uploader("Upload Resume (PDF)", type=["pdf"])
+
+    # CAMERA (FACE PRESENCE)
+    st.markdown("### 🎥 Face Check")
 
     st.markdown("""
     <video id="video" width="300" autoplay></video>
-    <p id="face_status">Checking face...</p>
+    <p id="status">Checking camera...</p>
 
     <script>
     navigator.mediaDevices.getUserMedia({ video: true })
     .then(function(stream) {
         document.getElementById('video').srcObject = stream;
-        document.getElementById("face_status").innerHTML = "✅ Face detected (Camera Active)";
+        document.getElementById("status").innerHTML = "✅ Camera Active (Face assumed)";
     })
     .catch(function(err) {
-        document.getElementById("face_status").innerHTML = "❌ No face detected / Camera blocked";
+        document.getElementById("status").innerHTML = "❌ Camera Blocked";
     });
     </script>
     """, unsafe_allow_html=True)
@@ -64,7 +74,6 @@ elif st.session_state.page == "interview":
 
     st.title("🤖 AI Voice Interview")
 
-    # generate questions
     if not st.session_state.questions:
         qlist = [
             "Tell me about yourself",
@@ -83,61 +92,76 @@ elif st.session_state.page == "interview":
         st.subheader(f"Question {index+1}")
         st.info(question)
 
-        # 🔊 VOICE QUESTION
+        # 🔊 FEMALE VOICE
         st.markdown(f"""
         <script>
-        var msg = new SpeechSynthesisUtterance("{question}");
-        speechSynthesis.cancel();
-        speechSynthesis.speak(msg);
+        function speakQuestion() {{
+            var msg = new SpeechSynthesisUtterance("{question}");
+            var voices = speechSynthesis.getVoices();
+
+            // Try to pick female voice
+            for (let i = 0; i < voices.length; i++) {{
+                if (voices[i].name.toLowerCase().includes("female") || voices[i].name.includes("Google UK English Female")) {{
+                    msg.voice = voices[i];
+                    break;
+                }}
+            }}
+
+            msg.rate = 1;
+            msg.pitch = 1.2;
+            speechSynthesis.cancel();
+            speechSynthesis.speak(msg);
+        }}
+        speakQuestion();
         </script>
         """, unsafe_allow_html=True)
 
-        # ⏱️ THINKING TIMER
+        # ⏱️ TIMER
         st.write("⏳ Thinking Time: 30 seconds")
-        timer_placeholder = st.empty()
+        timer = st.empty()
 
         for i in range(30, 0, -1):
-            timer_placeholder.write(f"Time left: {i} sec")
+            timer.write(f"{i} sec remaining...")
             time.sleep(1)
 
-        st.success("🎤 Start Speaking Now!")
+        st.success("🎤 Speak your answer now")
 
-        # 🎤 SPEECH TO TEXT
-        st.markdown("""
-        <button onclick="startDictation()">🎤 Speak Answer</button>
+        # 🎤 SPEECH TO TEXT (AUTO SUBMIT)
+        st.markdown(f"""
+        <button onclick="startVoice()">🎤 Start Speaking</button>
+        <p id="result"></p>
 
         <script>
-        function startDictation() {
+        function startVoice() {{
             var recognition = new webkitSpeechRecognition();
             recognition.lang = "en-US";
+            recognition.continuous = false;
 
-            recognition.onresult = function(event) {
+            recognition.onresult = function(event) {{
                 var text = event.results[0][0].transcript;
+                document.getElementById("result").innerHTML = "✅ " + text;
 
-                const doc = window.parent.document;
-                const area = doc.querySelector('textarea');
-                if(area){
-                    area.value = text;
-                    area.dispatchEvent(new Event('input',{bubbles:true}));
-                }
-            };
+                // Send answer to Streamlit via query params
+                window.parent.postMessage({{
+                    type: "streamlit:setComponentValue",
+                    value: text
+                }}, "*");
+            }};
 
             recognition.start();
-        }
+        }}
         </script>
         """, unsafe_allow_html=True)
 
-        answer = st.text_area("Your Answer (auto voice input)")
+        # HIDDEN INPUT CAPTURE
+        spoken_text = st.text_input("voice_input", key=f"voice_{index}")
 
-        if st.button("Submit Answer"):
-            if answer:
-                st.session_state.answers.append(answer)
-                st.rerun()
-            else:
-                st.warning("Please speak your answer!")
+        if spoken_text:
+            st.session_state.answers.append(spoken_text)
+            st.rerun()
 
     else:
-        # -------- RESULT --------
+        # RESULT
         st.success("🎉 Interview Completed")
 
         scores = [min(len(a.split()) * 2, 100) for a in st.session_state.answers]
