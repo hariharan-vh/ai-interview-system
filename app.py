@@ -1,9 +1,9 @@
 import streamlit as st
 import random
-import pandas as pd
 import time
+import pandas as pd
 
-st.set_page_config(page_title="AI Interview", layout="wide")
+st.set_page_config(page_title="AI Interview System", layout="wide")
 
 # ---------------- THEME ----------------
 if st.sidebar.toggle("🌗 Dark Mode"):
@@ -12,138 +12,162 @@ if st.sidebar.toggle("🌗 Dark Mode"):
 # ---------------- HEADER ----------------
 col1, col2 = st.columns([1,5])
 with col1:
-    st.image("https://cdn-icons-png.flaticon.com/512/4712/4712109.png", width=80)
+    st.image("https://cdn-icons-png.flaticon.com/512/3135/3135715.png", width=80)
 with col2:
     st.markdown("<h1>MIDDLE CLASS.pvt.ltd.</h1>", unsafe_allow_html=True)
 
 # ---------------- SESSION ----------------
-for k,v in {
-    "started":False,
-    "q_index":0,
-    "score":0,
-    "answers":[]
-}.items():
+defaults = {
+    "login": False,
+    "page": "login",
+    "skills": [],
+    "q_index": 0,
+    "score": 0,
+    "answers": []
+}
+for k,v in defaults.items():
     if k not in st.session_state:
-        st.session_state[k]=v
+        st.session_state[k] = v
 
-# ---------------- QUESTIONS ----------------
-questions = [
-    "What is Artificial Intelligence?",
-    "Explain your project",
-    "What are your strengths?",
-    "Why should we hire you?",
-    "Explain your technical skills"
-]
+# ---------------- LOGIN ----------------
+if st.session_state.page == "login":
+    st.subheader("🔐 Login")
+    user = st.text_input("Username")
+    pwd = st.text_input("Password", type="password")
 
-# ---------------- START ----------------
-st.subheader("🎭 AI Interview")
+    if st.button("Login"):
+        if user and pwd:
+            st.session_state.page = "dashboard"
 
-if not st.session_state.started:
-    if st.button("Start Interview 🚀"):
-        st.session_state.started = True
+# ---------------- DASHBOARD ----------------
+elif st.session_state.page == "dashboard":
+
+    st.subheader("📊 Dashboard")
+
+    col1, col2 = st.columns(2)
+    with col1:
+        st.success("💻 Java Developer")
+    with col2:
+        st.info("🤖 AI Engineer")
+
+    st.markdown("### 📸 Face Verification")
+
+    st.markdown("""
+    <video id="video" width="250" autoplay></video>
+    <p id="status">Checking...</p>
+
+    <script>
+    navigator.mediaDevices.getUserMedia({ video: true })
+    .then(function(stream){
+        document.getElementById('video').srcObject = stream;
+        document.getElementById("status").innerHTML="✅ Face Verified";
+    })
+    .catch(function(){
+        document.getElementById("status").innerHTML="❌ Camera Blocked";
+    });
+    </script>
+    """, unsafe_allow_html=True)
+
+    file = st.file_uploader("📄 Upload Resume (txt)", type=["txt"])
+
+    if file:
+        text = file.read().decode("utf-8").lower()
+        skills_db = ["python","java","ai","ml","sql"]
+        st.session_state.skills = [s for s in skills_db if s in text]
+
+        st.success("Resume Processed")
+        st.write("Skills:", st.session_state.skills)
+
+        if st.button("🚀 Start Interview"):
+            st.session_state.page = "interview"
 
 # ---------------- INTERVIEW ----------------
-if st.session_state.started and st.session_state.q_index < len(questions):
+elif st.session_state.page == "interview":
 
-    q = questions[st.session_state.q_index]
+    st.subheader("🎭 AI Interview")
 
-    # ---------------- QUESTION UI ----------------
-    st.markdown(f"<div style='padding:15px;border-radius:10px;background:#f1f1f1;'>🤖 {q}</div>", unsafe_allow_html=True)
+    if "questions" not in st.session_state:
+        if st.session_state.skills:
+            st.session_state.questions = [f"Explain {s}" for s in st.session_state.skills[:5]]
+        else:
+            st.session_state.questions = [
+                "Tell me about yourself",
+                "Explain your project",
+                "What are your strengths",
+                "Why should we hire you",
+                "Explain your skills"
+            ]
 
-    # ---------------- AI VOICE ----------------
-    st.markdown(f"""
-    <script>
-    function speakQuestion(){{
+    if st.session_state.q_index < 5:
+
+        q = st.session_state.questions[st.session_state.q_index]
+
+        st.markdown(f"<div style='padding:15px;background:#eee;border-radius:10px;'>🤖 {q}</div>", unsafe_allow_html=True)
+
+        # 🔊 Voice
+        st.markdown(f"""
+        <script>
         var msg = new SpeechSynthesisUtterance("{q}");
-        var voices = speechSynthesis.getVoices();
-
-        for (let i=0; i<voices.length; i++){{
-            if (voices[i].name.includes("Female") || voices[i].name.includes("Google UK English Female")) {{
-                msg.voice = voices[i];
-                break;
-            }}
-        }}
-
-        msg.pitch = 1.2;
-        msg.rate = 1;
-        speechSynthesis.cancel();
         speechSynthesis.speak(msg);
-    }}
-    speakQuestion();
-    </script>
-    """, unsafe_allow_html=True)
+        </script>
+        """, unsafe_allow_html=True)
 
-    # ---------------- ROBOT IMAGE ----------------
-    st.image("https://cdn-icons-png.flaticon.com/512/4712/4712109.png", width=120)
+        # Timer
+        timer = st.empty()
+        for i in range(30,0,-1):
+            timer.info(f"⏳ {i}s")
+            time.sleep(1)
 
-    # ---------------- TIMER ----------------
-    timer = st.empty()
-    for i in range(30,0,-1):
-        timer.info(f"⏳ Thinking Time: {i}s")
-        time.sleep(1)
+        st.success("🎤 Speak Now")
 
-    st.success("🎤 Speak Now")
+        # Speech input
+        st.markdown("""
+        <button onclick="startSpeech()">🎤 Speak</button>
+        <p id="output"></p>
 
-    # ---------------- SPEECH ONLY ----------------
-    st.markdown("""
-    <button onclick="startSpeech()" style="padding:10px 20px;font-size:16px;">
-    🎤 Speak Answer
-    </button>
+        <script>
+        function startSpeech(){
+            var recognition = new webkitSpeechRecognition();
+            recognition.lang="en-US";
 
-    <p id="output"></p>
+            recognition.onresult=function(e){
+                var text=e.results[0][0].transcript;
+                document.getElementById("output").innerHTML=text;
 
-    <script>
-    function startSpeech() {
-        var recognition = new webkitSpeechRecognition();
-        recognition.lang = "en-US";
-
-        recognition.onresult = function(event) {
-            var text = event.results[0][0].transcript;
-            document.getElementById("output").innerHTML = "✅ " + text;
-
-            const doc = window.parent.document;
-            const input = doc.querySelector('input[type="text"]');
-            if(input){
-                input.value = text;
-                input.dispatchEvent(new Event('input', {bubbles:true}));
+                const doc = window.parent.document;
+                const input = doc.querySelector('input[type="text"]');
+                if(input){
+                    input.value=text;
+                    input.dispatchEvent(new Event('input',{bubbles:true}));
+                }
             }
-        };
+            recognition.start();
+        }
+        </script>
+        """, unsafe_allow_html=True)
 
-        recognition.start();
-    }
-    </script>
-    """, unsafe_allow_html=True)
+        voice = st.text_input("", key=f"v_{st.session_state.q_index}", label_visibility="collapsed")
 
-    # HIDDEN FIELD (no typing UI)
-    voice = st.text_input("", key=f"voice_{st.session_state.q_index}", label_visibility="collapsed")
+        if voice:
+            st.session_state.answers.append(voice)
+            st.session_state.score += len(voice.split()) * 2
+            st.session_state.q_index += 1
+            st.rerun()
 
-    # AUTO SUBMIT
-    if voice:
-        st.session_state.answers.append(voice)
+    else:
+        st.success("🎉 Interview Completed")
 
-        score = min(len(voice.split()) * 2, 100)
-        st.session_state.score += score
+        total = st.session_state.score
+        st.write("Final Score:", total)
 
-        st.session_state.q_index += 1
-        st.rerun()
+        df = pd.DataFrame({
+            "Q":[f"Q{i+1}" for i in range(5)],
+            "Score":[total/5]*5
+        })
+        st.bar_chart(df.set_index("Q"))
 
-# ---------------- RESULT ----------------
-elif st.session_state.q_index >= len(questions):
-
-    st.success("🎉 Interview Completed")
-
-    total = st.session_state.score
-    st.write("## 📊 Final Score:", total)
-
-    df = pd.DataFrame({
-        "Questions":[f"Q{i+1}" for i in range(5)],
-        "Score":[total/5]*5
-    })
-
-    st.bar_chart(df.set_index("Questions"))
-
-    if st.button("Restart"):
-        st.session_state.q_index = 0
-        st.session_state.score = 0
-        st.session_state.answers = []
-        st.session_state.started = False
+        if st.button("Restart"):
+            st.session_state.page = "dashboard"
+            st.session_state.q_index = 0
+            st.session_state.score = 0
+            st.session_state.answers = []
