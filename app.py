@@ -233,13 +233,34 @@ def interview():
             final_score = sum(st.session_state.history)*10
             st.write(f"Final Score: {final_score}")
 
-            # ✅ SELECTION LOGIC
+ # ✅ NEW FEATURE: USER DETAILS FORM
+            if not st.session_state.form_submitted:
+                st.subheader("📝 Enter Your Details")
+
+                fname = st.text_input("First Name", key="fname") 
+                lname = st.text_input("Last Name", key="lname")
+                phone = st.text_input("Phone Number", key="phone")
+                email_input = st.text_input("Email ID", key="email1")
+                whatsapp = st.text_input("WhatsApp Number", key="whatsapp")
+
+                if st.button("Submit Details"):
+                    if fname and lname and phone and email_input:
+                        c.execute("INSERT INTO candidates VALUES (?,?,?,?,?)",
+                                  (fname, lname, phone, email_input, whatsapp))
+                        conn.commit()
+
+                        st.success("✅ Details Saved Successfully")
+                        st.session_state.form_submitted = True
+                    else:
+                        st.error("⚠️ Please fill all required fields")
+
+ # ✅ SELECTION LOGIC
             if final_score >= 60:
                 st.success("✅ SELECTED")
 
                 st.subheader("📝 Enter Email to Receive Offer")
 
-                email = st.text_input("Email ID")
+                email = st.text_input("Enter Email Again", key="email2")
 
                 if st.button("Send Offer Letter"):
                     msg = f"""
